@@ -1,0 +1,299 @@
+package com.campusconnect.campusconnectbackend.club.club_member.controller;
+
+import com.campusconnect.campusconnectbackend.announcement.service.AnnouncementService;
+import com.campusconnect.campusconnectbackend.club.club_member.service.ClubMemberService;
+import com.campusconnect.campusconnectbackend.club.repository.ClubRepository;
+import com.campusconnect.campusconnectbackend.club.service.ClubMemberManagementService;
+import com.campusconnect.campusconnectbackend.club.service.ClubService;
+import com.campusconnect.campusconnectbackend.club.club_team.service.ClubTeamService;
+import com.campusconnect.campusconnectbackend.announcement.dto.req.AnnouncementPatchRequestDto;
+import com.campusconnect.campusconnectbackend.announcement.dto.req.AnnouncementRequestDto;
+import com.campusconnect.campusconnectbackend.club.dto.req.SaveOverviewRequestDto;
+import com.campusconnect.campusconnectbackend.event.dto.req.EventRequestDto;
+import com.campusconnect.campusconnectbackend.announcement.dto.res.AnnouncementResponseDto;
+import com.campusconnect.campusconnectbackend.club.dto.res.club_admin_member.ClubDashboardStatsDto;
+import com.campusconnect.campusconnectbackend.club.dto.res.club_admin_member.ClubTeamDto;
+import com.campusconnect.campusconnectbackend.club.dto.res.club_card.ClubMemberDto;
+import com.campusconnect.campusconnectbackend.event.dto.res.EventResponseDto;
+import com.campusconnect.campusconnectbackend.event.overview_generation.EventOverviewService;
+import com.campusconnect.campusconnectbackend.event.service.EventRegistrationService;
+import com.campusconnect.campusconnectbackend.event.service.EventService;
+import com.campusconnect.campusconnectbackend.dto.response.AuthResponseDto;
+import com.campusconnect.campusconnectbackend.dto.response.MessageResponseDto;
+import com.campusconnect.campusconnectbackend.security.auth.AuthService;
+import com.campusconnect.campusconnectbackend.student.dto.req.SubDashboardLoginRequestDto;
+import com.campusconnect.campusconnectbackend.student.service.SubDashboardService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/campus-connect/clubs/{clubId}/member")
+@RequiredArgsConstructor
+public class ClubMemberController {
+
+    private final ClubMemberService clubMemberService;
+    private final EventService eventService;
+    private final AnnouncementService announcementService;
+    private final ClubTeamService clubTeamService;
+    private final ClubRepository clubRepository;
+    private final ClubService clubService;
+    private final EventOverviewService eventOverviewService;
+    private final EventRegistrationService eventRegistrationService;
+    private final ClubMemberManagementService clubMemberManagementService;
+    private final AuthService authService;
+    private final SubDashboardService subDashboardService;
+
+    // return to student dashboard from club member session
+    @PostMapping("/return-to-student")
+    public AuthResponseDto returnToStudent(@Valid @RequestBody SubDashboardLoginRequestDto request) {
+        Long studentId = authService.getCurrentUserId();
+        try {
+            return subDashboardService.clubReturnToStudent(studentId, request);
+        } catch (org.springframework.web.server.ResponseStatusException ex) {
+            return AuthResponseDto.failure(ex.getReason() != null ? ex.getReason() : "Invalid student password");
+        }
+    }
+
+    /* Home */
+
+    // get-role
+    @GetMapping("/check-role")
+    public String getRole(@PathVariable Long clubId) {
+        return clubMemberManagementService.getRole(clubId);
+    }
+
+
+    // get club-name
+    @GetMapping("/club-name")
+    public String getClubName(@PathVariable Long clubId) {
+        return clubRepository.findById(clubId).orElseThrow(
+                () -> new RuntimeException("Club with id: " + clubId + " not found")
+        ).getName();
+    }
+
+    // stats -section
+    @GetMapping("/stats")
+    public ClubDashboardStatsDto getStats(@PathVariable Long clubId) {
+        return clubMemberService.getStats(clubId);
+    }
+
+    // upcoming events -top 3 upcoming events
+    @GetMapping("/top-events")
+    public List<EventResponseDto> getTopEvents(@PathVariable Long clubId) {
+        return eventService.getTopEventsByClub(clubId);
+    }
+
+    // announcements -top 4 announcements
+    @GetMapping("/top-announcements")
+    public List<AnnouncementResponseDto> getLatestAnnouncements(@PathVariable Long clubId) {
+        return announcementService.getLatestAnnouncements(clubId);
+    }
+
+
+    /* Events Subtabs & Management */
+
+    @GetMapping("/events/published")
+    public List<EventResponseDto> getPublishedEvents(@PathVariable Long clubId) {
+        return clubMemberService.getPublishedEvents(clubId);
+    }
+
+    @GetMapping("/events/pending")
+    public List<EventResponseDto> getMyPendingEvents(@PathVariable Long clubId) {
+        return clubMemberService.getMyPendingEvents(clubId, authService.getCurrentUserId());
+    }
+
+    @GetMapping("/events/drafts")
+    public List<EventResponseDto> getMyDraftEvents(@PathVariable Long clubId) {
+        return clubMemberService.getMyDraftEvents(clubId, authService.getCurrentUserId());
+    }
+
+    @PostMapping(value = "/events/draft", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public MessageResponseDto saveEventDraft(
+            @PathVariable Long clubId,
+            @RequestPart("event") EventRequestDto request,
+            @RequestPart(value = "image", required = false) org.springframework.web.multipart.MultipartFile image
+    ) {
+        return clubMemberService.saveEventDraft(clubId, request, authService.getCurrentUserId(), image);
+    }
+
+    @PostMapping("/events/drafts/{id}/publish")
+    public MessageResponseDto publishEventDraft(@PathVariable Long clubId, @PathVariable Long id) {
+        return clubMemberService.publishEventDraft(clubId, id, authService.getCurrentUserId());
+    }
+
+    @DeleteMapping("/events/drafts/{id}")
+    public MessageResponseDto deleteEventDraft(@PathVariable Long clubId, @PathVariable Long id) {
+        return clubMemberService.deleteEventDraft(clubId, id, authService.getCurrentUserId());
+    }
+
+    // get all live & upcoming events of club
+    @GetMapping("/events/active")
+    public List<EventResponseDto> getActiveEventsByCollege(@PathVariable Long clubId) {
+        return eventService.getActiveEventsByClub(clubId);
+    }
+
+    // get all finished events of club
+    @GetMapping("/events/finished")
+    public List<EventResponseDto> getFinishedEventsByCollege(@PathVariable Long clubId) {
+        return clubMemberService.getFinishedEvents(clubId);
+    }
+
+    // get particular active event
+    @GetMapping("/events/active/{eventId}")
+    public EventResponseDto getEvent(@PathVariable Long eventId) {
+        return eventService.getEvent(eventId);
+    }
+
+    // view details of finished-events
+    @GetMapping("/events/finished/{eventId}")
+    public EventResponseDto getEventDetails(@PathVariable Long eventId) {
+        return eventService.getEvent(eventId);
+    }
+
+    // create new event
+    @PostMapping(value = "/events/active", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public MessageResponseDto createEvent(
+            @PathVariable Long clubId,
+            @RequestPart("event") EventRequestDto request,
+            @RequestPart("image") MultipartFile image
+    ) {
+        return eventService.createEvent(request, clubId, image);
+    }
+
+    // modify any event
+    @PatchMapping(value = "/events/active/{eventId}", consumes =MediaType.MULTIPART_FORM_DATA_VALUE)
+    public MessageResponseDto updateEvent(
+            @PathVariable Long clubId,
+            @PathVariable Long eventId,
+            @RequestPart("event") EventRequestDto request,
+            @RequestPart("image") MultipartFile image
+    ) {
+        return eventService.updateEvent(request, eventId, clubId, image);
+    }
+
+    // delete any event
+    @DeleteMapping("/events/active/{eventId}")
+    public MessageResponseDto deleteEvent(@PathVariable Long eventId, @PathVariable Long clubId) {
+        return eventService.deleteEvent(eventId, clubId);
+    }
+
+    // download event registration
+    @GetMapping("/events/{eventId}/registrations/download")
+    public ResponseEntity<byte[]> downloadRegistrations(@PathVariable Long eventId) {
+
+        byte[] excelData = eventRegistrationService.generateExcel(eventId);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=event_registrations.xlsx")
+                .contentType(MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(excelData);
+    }
+
+    /* Generate Overview */
+
+    // generate overview
+    @PostMapping("/events/finished/{eventId}/generate-overview")
+    public String generateOverview(@PathVariable Long eventId) {
+        return eventOverviewService.generateOverview(eventId);
+    }
+
+    // save overview
+    @PatchMapping(value = "/events/finished/{eventId}/save-overview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public MessageResponseDto saveOverview(
+            @PathVariable Long clubId,
+            @PathVariable Long eventId,
+            @RequestPart("overview") SaveOverviewRequestDto request,
+            @RequestPart(value = "images", required = false) List<MultipartFile> images
+    ) {
+        return eventOverviewService.saveOverview(clubId, eventId, request, images);
+    }
+
+    /* Announcements Subtabs & Management */
+
+    @GetMapping("/announcements/published")
+    public List<AnnouncementResponseDto> getPublishedAnnouncements(@PathVariable Long clubId) {
+        return clubMemberService.getPublishedAnnouncements(clubId);
+    }
+
+    @GetMapping("/announcements/pending")
+    public List<AnnouncementResponseDto> getMyPendingAnnouncements(@PathVariable Long clubId) {
+        return clubMemberService.getMyPendingAnnouncements(clubId, authService.getCurrentUserId());
+    }
+
+    @GetMapping("/announcements/drafts")
+    public List<AnnouncementResponseDto> getMyDraftAnnouncements(@PathVariable Long clubId) {
+        return clubMemberService.getMyDraftAnnouncements(clubId, authService.getCurrentUserId());
+    }
+
+    @PostMapping("/announcements/draft")
+    public MessageResponseDto saveAnnouncementDraft(@PathVariable Long clubId, @RequestBody AnnouncementRequestDto request) {
+        return clubMemberService.saveAnnouncementDraft(clubId, request, authService.getCurrentUserId());
+    }
+
+    @PostMapping("/announcements/drafts/{id}/publish")
+    public MessageResponseDto publishAnnouncementDraft(@PathVariable Long clubId, @PathVariable Long id) {
+        return clubMemberService.publishAnnouncementDraft(clubId, id, authService.getCurrentUserId());
+    }
+
+    @DeleteMapping("/announcements/drafts/{id}")
+    public MessageResponseDto deleteAnnouncementDraft(@PathVariable Long clubId, @PathVariable Long id) {
+        return clubMemberService.deleteAnnouncementDraft(clubId, id, authService.getCurrentUserId());
+    }
+
+    // get all announcements
+    @GetMapping("/announcements")
+    public List<AnnouncementResponseDto> getAnnouncements(@PathVariable Long clubId) {
+        return clubMemberService.getPublishedAnnouncements(clubId);
+    }
+
+    // create new announcement
+    @PostMapping("/announcements")
+    public MessageResponseDto createAnnouncement(@PathVariable Long clubId, @RequestBody AnnouncementRequestDto request) {
+        return announcementService.createAnnouncement(request, clubId);
+    }
+
+    // modify any announcement
+    @PatchMapping("/announcements/{annId}")
+    public MessageResponseDto updateAnnouncement(@PathVariable Long annId, @PathVariable Long clubId, @RequestBody AnnouncementPatchRequestDto request) {
+        return announcementService.updateAnnouncement(request, annId, clubId);
+    }
+
+    // delete any announcement
+    @DeleteMapping("/announcements/{annId}")
+    public MessageResponseDto deleteAnnouncement(@PathVariable Long annId, @PathVariable Long clubId) {
+        return announcementService.deleteAnnouncement(annId, clubId);
+    }
+
+
+    /* Members */
+
+    // get all members of club
+    @GetMapping("/members")
+    public List<ClubMemberDto> getMembers(@PathVariable Long clubId) {
+        return clubService.getClubMembers(clubId);
+    }
+
+
+    /* Teams */
+
+    // get all team
+    @GetMapping("/teams")
+    public List<ClubTeamDto> getTeams(@PathVariable Long clubId) {
+        return clubTeamService.getTeamsByClub(clubId);
+    }
+
+    // get team count of club
+    @GetMapping("/team-cnt")
+    public int getTeamCnt(@PathVariable Long clubId) {
+        return clubTeamService.getTeamCount(clubId);
+    }
+}
