@@ -1,0 +1,116 @@
+import React from "react";
+import { Button } from "../ui/Button";
+import { useState } from "react";
+import { ArrowRight, Download, Newspaper, BookOpen, Users, Bell } from "lucide-react"
+import DemoPreview from "./DemoPreview";
+
+const HeroSection = () => {
+  const [showVideo, setShowVideo] = useState(false);
+  const featurePills = [
+    { icon: Newspaper, label: "Digital Newspaper" },
+    { icon: BookOpen, label: "Research Publishing" },
+    { icon: Users, label: "Club Management" },
+    { icon: Bell, label: "Smart Notifications" },
+  ];
+
+  return (
+    <section className="relative min-h-screen flex items-center justify-center pt-16 overflow-hidden bg-gradient-hero">
+
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute top-20 left-10 w-72 h-72 bg-primary/5 rounded-full blur-3xl animate-float" />
+        <div className="absolute bottom-20 right-10 w-96 h-96 bg-accent/5 rounded-full blur-3xl animate-float" style={{ animationDelay: "1s" }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/3 rounded-full blur-3xl" />
+      </div>
+
+      <div className="container mx-auto px-4 py-20 relative z-10">
+        <div className="max-w-4xl mx-auto text-center">
+
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-8 animate-fade-in">
+            <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+            Unifying Campus Communication
+          </div>
+
+
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-foreground leading-tight mb-6 animate-fade-in" style={{ animationDelay: "0.1s" }}>
+            Your Campus, <br />
+            <span className="text-gradient-primary">One Connected Platform</span>
+          </h1>
+
+
+          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 animate-fade-in" style={{ animationDelay: "0.2s" }}>
+            Streamline communication, enhance student engagement, and expand academic opportunities with CampusConnect – the unified hub for clubs, news, research, and events.
+          </p>
+
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16 animate-fade-in" style={{ animationDelay: "0.3s" }}>
+            <Button variant="hero" size="xl" asChild>
+              <a href="/auth">
+                Get Started
+                <ArrowRight className="w-5 h-5" />
+              </a>
+            </Button>
+            <Button variant="hero-outline" size="xl" asChild>
+              <a href="https://github.com/vasuchandrani/Campus-Connect/releases/latest" target="_blank" rel="noreferrer">
+                Download App
+                <Download className="w-5 h-5" />
+              </a>
+            </Button>
+            <Button
+              variant="hero-outline"
+              size="xl"
+              onClick={() => setShowVideo(true)}
+            >
+              Watch Demo
+            </Button>
+          </div>
+
+
+          <div className="flex flex-wrap items-center justify-center gap-3 animate-fade-in" style={{ animationDelay: "0.4s" }}>
+            {featurePills.map((feature) => {
+              const Icon = feature.icon;
+              return (
+                <div
+                  key={feature.label}
+                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-card shadow-soft border border-border/50 text-sm font-medium text-foreground"
+                >
+                  <Icon className="w-4 h-4 text-primary" />
+                  {feature.label}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="mt-16 max-w-6xl mx-auto animate-scale-in" style={{ animationDelay: "0.5s" }}>
+          <div className="relative">
+            <DemoPreview />
+          </div>
+        </div>
+      </div>
+      {showVideo && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+          <div className="relative w-[90%] md:w-[800px] bg-black rounded-xl overflow-hidden shadow-xl">
+
+            <button
+              className="absolute top-2 right-3 text-white text-2xl z-10"
+              onClick={() => setShowVideo(false)}
+            >
+              ✕
+            </button>
+
+            <iframe
+              className="w-full h-[500px]"
+              src="https://drive.google.com/file/d/1tBYrTQ13bBBB32nB8N_UMBczI57JWAij/preview"
+              allow="autoplay"
+              allowFullScreen
+            ></iframe>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+};
+
+
+
+export default HeroSection;
